@@ -231,7 +231,7 @@ These steps are written for macOS with Homebrew, with Linux equivalents noted. *
 ### 2. Install
 
 ```bash
-git clone <this repo> askdata && cd askdata
+git clone https://github.com/PaulCornell/mytooluse.git && cd mytooluse
 
 python3 -m venv .venv
 source .venv/bin/activate          # do this in every new terminal, or use .venv/bin/askdata
@@ -284,7 +284,7 @@ pytest                   # optional: about 3 seconds, or about 12 with the brows
 **Option A, recommended: WSL 2 (Linux inside Windows).** This avoids nearly all Windows-specific issues.
 
 1. In PowerShell **as Administrator**: `wsl --install`, then restart. This installs Ubuntu.
-2. Open the **Ubuntu** app and follow the Linux instructions above, cloning the repo inside Ubuntu (for example `~/askdata`, not under `/mnt/c/`, which is much slower).
+2. Open the **Ubuntu** app and follow the Linux instructions above, cloning the repo inside Ubuntu (for example `~/mytooluse`, not under `/mnt/c/`, which is much slower).
 3. Install Ollama **inside Ubuntu** (`curl -fsSL https://ollama.com/install.sh | sh`) so that `askdata setup-local` can find the `ollama` command.
 4. Run `askdata serve --no-browser`, then open http://127.0.0.1:8000 in your normal Windows browser; WSL forwards the port.
 
@@ -301,7 +301,7 @@ pytest                   # optional: about 3 seconds, or about 12 with the brows
 
 2. **Install the project:**
    ```powershell
-   git clone <this repo> askdata; cd askdata
+   git clone https://github.com/PaulCornell/mytooluse.git; cd mytooluse
    py -3.12 -m venv .venv
    .venv\Scripts\Activate.ps1
    pip install -e '.[dev]'
