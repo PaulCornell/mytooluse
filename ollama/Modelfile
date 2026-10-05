@@ -1,0 +1,8 @@
+# The model `askdata setup-local` creates: an open-weight, tool-capable model with a
+# context window large enough for the agent (Ollama often defaults to 4,096 tokens).
+#
+#   ollama pull qwen2.5:3b && ollama create askdata-local -f ollama/Modelfile
+#
+# On a machine with 16 GB+ of RAM, a larger base model (for example qwen2.5:7b) answers better.
+FROM qwen2.5:3b
+PARAMETER num_ctx 16384

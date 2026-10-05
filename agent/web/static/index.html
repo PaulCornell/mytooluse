@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ask the Data</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="top">
+  <div>
+    <h1>Ask the Data</h1>
+    <p class="sub">Watch an AI agent answer questions about 300,000 Washington State EVs, one loop step at a time.</p>
+  </div>
+  <div id="status" class="pills" aria-live="polite"></div>
+</header>
+
+<main class="layout">
+  <aside class="side">
+    <form id="ask" class="panel">
+      <label for="question" class="label">Your question</label>
+      <textarea id="question" rows="3" maxlength="500" required
+        placeholder="e.g. Which model year has the most registered EVs?"></textarea>
+      <div id="examples" class="examples" aria-label="Example questions"></div>
+
+      <details class="options">
+        <summary>Options</summary>
+        <div class="grid">
+          <label>Model provider
+            <select id="provider"></select>
+          </label>
+          <label>Model
+            <input id="model" type="text" maxlength="100" placeholder="default">
+          </label>
+          <label>Max steps
+            <input id="max_steps" type="number" min="1" max="30" value="12">
+          </label>
+          <label>Time limit (s)
+            <input id="max_time_s" type="number" min="10" max="1800" value="300">
+          </label>
+          <label>Schema prefetch
+            <select id="prefetch">
+              <option value="">Auto (on for local)</option>
+              <option value="true">On</option>
+              <option value="false">Off</option>
+            </select>
+          </label>
+          <label>Chaos <output id="chaos_out">0%</output>
+            <input id="chaos" type="range" min="0" max="0.5" step="0.05" value="0">
+          </label>
+          <label>Chaos seed
+            <input id="seed" type="number" min="0" step="1" placeholder="random">
+          </label>
+        </div>
+        <p class="hint">Chaos randomly fails tool calls with temporary errors so you can watch the retry logic work.
+          Set a seed to get the same failures every time.</p>
+      </details>
+
+      <button id="go" type="submit">Ask</button>
+      <p id="form_error" class="form-error" role="alert" hidden></p>
+    </form>
+
+    <section class="panel">
+      <h2 class="label">Past runs</h2>
+      <ul id="runs" class="runs"></ul>
+    </section>
+  </aside>
+
+  <section class="main">
+    <div class="panel loop-panel">
+      <div class="loop-head">
+        <h2 class="label">The agent loop</h2>
+        <label class="toggle"><input id="explain" type="checkbox" checked> Explain each step</label>
+      </div>
+      <ol id="loop" class="loop" aria-label="Agent loop stages">
+        <li data-stage="budget"><b>1</b> Check budget</li>
+        <li data-stage="call"><b>2</b> Call model</li>
+        <li data-stage="decide"><b>3</b> Read stop_reason</li>
+        <li data-stage="tools"><b>4</b> Run tools</li>
+        <li data-stage="append"><b>5</b> Send results back</li>
+        <li data-stage="done" class="end"><b>✓</b> Answer</li>
+      </ol>
+      <p class="explain loop-note">Every trip around steps 1–5 is one <em>step</em>. The loop repeats until the model
+        answers (<code>end_turn</code>) or a budget runs out. That's the whole agent: the model decides, the harness acts.</p>
+      <div id="stats" class="stats"></div>
+    </div>
+
+    <div class="tabs" role="tablist">
+      <button role="tab" aria-selected="true" data-tab="timeline">Timeline</button>
+      <button role="tab" aria-selected="false" data-tab="conversation">What the model sees</button>
+      <button role="tab" aria-selected="false" data-tab="raw">Raw events</button>
+    </div>
+    <div id="timeline" class="tab-body"></div>
+    <div id="conversation" class="tab-body" hidden></div>
+    <div id="raw" class="tab-body" hidden></div>
+    <div id="empty" class="empty">
+      <p>Ask a question, or open a past run, to see the loop in action.</p>
+    </div>
+  </section>
+</main>
+<script src="/static/app.js"></script>
+</body>
+</html>

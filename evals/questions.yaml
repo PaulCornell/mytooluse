@@ -1,0 +1,170 @@
+# Eval questions (PRD 005). Expected answers are computed from reference_sql at eval time,
+# so they stay correct when the dataset is refreshed.
+#
+# grader types:
+#   numeric       reference_sql returns one value; passes if any number in the answer is within tolerance
+#   contains_all  every value in reference_sql's first column must appear in the answer (case-insensitive)
+#   judge         an LLM judge applies the rubric; {reference} is replaced with reference_sql's result
+
+- id: total-vehicles
+  tags: [db]
+  question: How many electric vehicles are in the dataset?
+  grader: {type: numeric, reference_sql: "SELECT COUNT(*) FROM vehicles", rel_tol: 0.0}
+
+- id: tesla-share
+  tags: [db]
+  question: What percentage of all registered EVs are Teslas?
+  grader: {type: numeric, reference_sql: "SELECT 100.0*SUM(make='TESLA')/COUNT(*) FROM vehicles", abs_tol: 0.1}
+
+- id: top-five-makes
+  tags: [db]
+  question: What are the five most common EV makes, from most to least common?
+  grader: {type: contains_all, reference_sql: "SELECT make FROM vehicles GROUP BY make ORDER BY COUNT(*) DESC LIMIT 5"}
+
+- id: king-bev-per-phev
+  tags: [db]
+  question: In King County, Washington, how many battery-electric vehicles are there for every plug-in hybrid?
+  grader:
+    type: numeric
+    reference_sql: "SELECT CAST(SUM(ev_type='BEV') AS REAL)/SUM(ev_type='PHEV') FROM vehicles WHERE county='King' AND state='WA'"
+    abs_tol: 0.05
+
+- id: avg-range-bev-2020
+  tags: [db, data-quality]
+  question: What is the average electric range of model-year 2020 battery-electric vehicles?
+  grader:
+    type: numeric
+    reference_sql: "SELECT AVG(electric_range) FROM vehicles WHERE ev_type='BEV' AND model_year=2020 AND electric_range>0"
+    abs_tol: 0.5
+
+- id: top-city-outside-king
+  tags: [db]
+  question: Which Washington city outside King County has the most registered EVs?
+  grader:
+    type: contains_all
+    reference_sql: "SELECT city FROM vehicles WHERE state='WA' AND county<>'King' GROUP BY city ORDER BY COUNT(*) DESC LIMIT 1"
+
+- id: highest-phev-share-county
+  tags: [db]
+  question: Among Washington counties with at least 1,000 registered EVs, which has the highest share of plug-in hybrids?
+  grader:
+    type: contains_all
+    reference_sql: "SELECT county FROM vehicles WHERE state='WA' GROUP BY county HAVING COUNT(*)>=1000 ORDER BY 1.0*SUM(ev_type='PHEV')/COUNT(*) DESC LIMIT 1"
+
+- id: peak-model-year
+  tags: [db]
+  question: Which model year has the most registered EVs?
+  grader: {type: contains_all, reference_sql: "SELECT model_year FROM vehicles GROUP BY model_year ORDER BY COUNT(*) DESC LIMIT 1"}
+
+- id: distinct-makes
+  tags: [db]
+  question: How many different manufacturers appear in the data?
+  grader: {type: numeric, reference_sql: "SELECT COUNT(DISTINCT make) FROM vehicles", rel_tol: 0.0}
+
+- id: out-of-state
+  tags: [db]
+  question: How many vehicles in the dataset have a registered address outside Washington?
+  grader: {type: numeric, reference_sql: "SELECT COUNT(*) FROM vehicles WHERE state<>'WA'", rel_tol: 0.0}
+
+- id: cafv-eligible-share
+  tags: [db]
+  question: What percentage of vehicles are confirmed eligible as Clean Alternative Fuel Vehicles?
+  grader:
+    type: numeric
+    reference_sql: "SELECT 100.0*SUM(cafv_eligibility='Clean Alternative Fuel Vehicle Eligible')/COUNT(*) FROM vehicles"
+    abs_tol: 0.1
+
+- id: top-models-2024
+  tags: [db]
+  question: What were the three most common models for model year 2024?
+  grader:
+    type: contains_all
+    reference_sql: "SELECT model FROM vehicles WHERE model_year=2024 GROUP BY model ORDER BY COUNT(*) DESC LIMIT 3"
+
+- id: seattle-city-light
+  tags: [db]
+  question: How many EVs are in Seattle City Light's service territory?
+  grader: {type: numeric, reference_sql: "SELECT COUNT(*) FROM vehicles WHERE electric_utility LIKE '%CITY OF SEATTLE%'", rel_tol: 0.0}
+
+- id: unknown-range-share
+  tags: [db, data-quality]
+  question: What share of vehicles have an unknown (not yet researched) electric range?
+  grader: {type: numeric, reference_sql: "SELECT 100.0*SUM(electric_range=0)/COUNT(*) FROM vehicles", abs_tol: 0.1}
+
+- id: yoy-growth-peak
+  tags: [python]
+  question: >-
+    Looking at model years 2018 through 2023, compute the year-over-year percentage change in the number
+    of registered vehicles. Which model year had the largest increase over the previous year, and by what percentage?
+  grader:
+    type: numeric
+    reference_sql: >-
+      WITH y AS (SELECT model_year, COUNT(*) n FROM vehicles WHERE model_year BETWEEN 2017 AND 2023 GROUP BY 1),
+      g AS (SELECT model_year, 100.0*(n - LAG(n) OVER (ORDER BY model_year))/LAG(n) OVER (ORDER BY model_year) AS growth FROM y)
+      SELECT growth FROM g WHERE model_year>=2018 ORDER BY growth DESC LIMIT 1
+    abs_tol: 0.5
+
+- id: county-bev-range-correlation
+  tags: [python]
+  question: >-
+    Across Washington counties with at least 500 registered EVs, what is the Pearson correlation between a county's
+    share of battery-electric vehicles and the average known electric range of its vehicles?
+  grader:
+    type: numeric
+    reference_sql: >-
+      WITH c AS (SELECT county, 1.0*SUM(ev_type='BEV')/COUNT(*) x, AVG(NULLIF(electric_range,0)) y
+                 FROM vehicles WHERE state='WA' GROUP BY county HAVING COUNT(*)>=500),
+      s AS (SELECT COUNT(*) n, SUM(x) sx, SUM(y) sy, SUM(x*x) sxx, SUM(y*y) syy, SUM(x*y) sxy FROM c)
+      SELECT (n*sxy - sx*sy)/sqrt((n*sxx - sx*sx)*(n*syy - sy*sy)) FROM s
+    abs_tol: 0.01
+
+- id: median-model3-range
+  tags: [python]
+  question: What is the median electric range of Tesla Model 3s with a known range?
+  grader:
+    type: numeric
+    reference_sql: >-
+      WITH r AS (SELECT electric_range v FROM vehicles WHERE make='TESLA' AND model='MODEL 3' AND electric_range>0),
+      o AS (SELECT v FROM r ORDER BY v LIMIT 2 - (SELECT COUNT(*) FROM r)%2 OFFSET ((SELECT COUNT(*) FROM r)-1)/2)
+      SELECT AVG(v) FROM o
+    abs_tol: 0.5
+
+- id: zev-target
+  tags: [search]
+  question: >-
+    What has Washington State committed to regarding sales of new gasoline-powered passenger cars, and by what year?
+    How many EVs are registered in this dataset today?
+  grader:
+    type: judge
+    reference_sql: "SELECT COUNT(*) FROM vehicles"
+    rubric: >-
+      PASS only if the answer (1) states a Washington target or requirement year for new light-duty vehicle sales
+      to be zero-emission (2030 goal and/or 2035 requirement under Advanced Clean Cars II are both acceptable),
+      (2) cites at least one URL for that claim, and (3) gives a registered-EV count within 1% of {reference}.
+
+- id: utility-rebates
+  tags: [search]
+  question: >-
+    Which utility territory has more EVs in this dataset, Seattle City Light or Puget Sound Energy?
+    Does that utility currently offer an EV charging incentive or rebate program? Cite a source.
+  grader:
+    type: judge
+    reference_sql: >-
+      SELECT 'Seattle City Light: ' || SUM(electric_utility LIKE '%CITY OF SEATTLE%') ||
+             ', Puget Sound Energy: ' || SUM(electric_utility LIKE '%PUGET SOUND ENERGY%') FROM vehicles
+    rubric: >-
+      Reference counts: {reference}. PASS only if the answer identifies the utility with more EVs correctly,
+      gives counts consistent with the reference (within 1%), and describes an EV charging program of that utility
+      with at least one cited URL. Do not judge whether the program details are current.
+
+- id: incentive-and-count
+  tags: [search]
+  question: >-
+    Does Washington State offer a sales-tax exemption or rebate for buying a new EV? Summarize the current rules
+    with a source, and tell me how many battery-electric vehicles of model year 2019 or later are in the dataset.
+  grader:
+    type: judge
+    reference_sql: "SELECT COUNT(*) FROM vehicles WHERE ev_type='BEV' AND model_year>=2019"
+    rubric: >-
+      PASS only if the answer describes a Washington EV tax exemption or rebate program with at least one cited URL
+      (do not judge whether the details are current) and gives a BEV count within 1% of {reference}.
